@@ -343,6 +343,16 @@ export function CrawlerConfigPanel() {
             </Select>
           </Field>
 
+          <Field label="账号 / 数据集" hint="不同账号填不同名字,数据分开存到 data/<账号>/;留空进公共 data/">
+            <Input
+              value={config.account}
+              onChange={(e) => updateConfig({ account: e.target.value })}
+              disabled={isDisabled}
+              placeholder="如 xiaohao-A"
+              className="h-9 text-xs"
+            />
+          </Field>
+
           <div className="space-y-2">
             <div className="flex items-center gap-3 rounded-lg border border-cyber-border-subtle bg-cyber-bg-tertiary/30 p-2.5 hover:border-cyber-border-DEFAULT transition-colors">
               <Checkbox

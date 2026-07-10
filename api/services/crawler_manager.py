@@ -20,11 +20,17 @@ import asyncio
 import subprocess
 import signal
 import os
+import re
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
 
 from ..schemas import CrawlerStartRequest, LogEntry
+
+
+def _safe_account(name: str) -> str:
+    """账号/数据集名清洗:只留字母数字下划线连字符,防路径穿越,截断 64。"""
+    return re.sub(r"[^0-9A-Za-z_\-]", "_", (name or "").strip())[:64]
 
 
 class CrawlerManager:
@@ -127,7 +133,13 @@ class CrawlerManager:
                     encoding='utf-8',
                     bufsize=1,
                     cwd=str(self._project_root),
-                    env={**os.environ, "PYTHONUNBUFFERED": "1"}
+                    env={
+                        **os.environ,
+                        "PYTHONUNBUFFERED": "1",
+                        # 账号分区:非空 account → 数据落 data/<account>/,base_config 读该环境变量
+                        **({"MC_SAVE_DATA_PATH": f"data/{_safe_account(config.account)}"}
+                           if getattr(config, "account", "") else {}),
+                    }
                 )
 
                 self.status = "running"

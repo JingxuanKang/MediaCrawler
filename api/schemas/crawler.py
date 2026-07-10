@@ -73,6 +73,7 @@ class CrawlerStartRequest(BaseModel):
     enable_sub_comments: bool = False
     save_option: SaveDataOptionEnum = SaveDataOptionEnum.JSONL
     cookies: str = ""
+    account: str = ""  # 账号/数据集名 → 数据分区落 data/<account>/;留空进公共 data/
     headless: bool = False
     max_notes_count: Optional[int] = Field(default=None, ge=1, le=MAX_API_LIMIT_COUNT)
     max_comments_count: Optional[int] = Field(default=None, ge=1, le=MAX_API_LIMIT_COUNT)

@@ -11,6 +11,7 @@ export interface CrawlerConfig {
   save_option: string
   cookies: string
   headless: boolean
+  account: string    // 账号/数据集名 → data/<account>/
 }
 
 export interface CrawlerStatus {
