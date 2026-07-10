@@ -33,6 +33,13 @@ def _safe_seg(name: str) -> str:
     return re.sub(r"[^0-9A-Za-z_\-]", "_", (name or "").strip())[:64]
 
 
+# 走 CDP(连 Sunshine 桌面里真 Chrome:9222)的用户白名单;其他用户照旧各自 headless。
+# 逗号分隔环境变量 MC_CDP_USERS 覆盖(默认只 jingxuan)。
+CDP_USERS = set(
+    u.strip().lower() for u in os.environ.get("MC_CDP_USERS", "jingxuan").split(",") if u.strip()
+)
+
+
 class CrawlerManager:
     """每个登录用户一个实例:各自独立的进程/日志/状态/WebSocket 订阅。"""
 
@@ -144,6 +151,8 @@ class CrawlerManager:
                         "MC_SAVE_DATA_PATH": self._data_path(config),
                         # 扫码登录:无头浏览器把二维码写到这个 PNG,前端拉去显示
                         "MC_QR_PATH": f"data/{self.user}/_qr.png",
+                        # 白名单用户走 CDP:连 Sunshine 桌面里的真 Chrome(localhost:9222),真实指纹低风控
+                        **({"MC_CDP": "1"} if self.user in CDP_USERS else {}),
                     },
                 )
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=x11vnc for MediaCrawler desktop :1 (web/phone 扫码用)
+After=mc-session.service
+Requires=mc-xorg.service
+
+[Service]
+User=jingxuan
+Group=jingxuan
+Environment=XAUTHORITY=/run/mc-xauth
+ExecStart=/usr/bin/x11vnc -display :1 -auth /run/mc-xauth -forever -shared -nopw -rfbport 5900 -localhost -noxdamage -quiet
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

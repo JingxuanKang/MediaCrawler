@@ -1,0 +1,14 @@
+[Unit]
+Description=MediaCrawler Xorg :1 on RTX3090 (headless virtual display)
+After=multi-user.target
+Conflicts=getty@tty8.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'rm -f /run/mc-xauth; touch /run/mc-xauth; xauth -f /run/mc-xauth add :1 . $(mcookie); chmod 0644 /run/mc-xauth'
+ExecStart=/usr/bin/Xorg :1 -config /etc/X11/mc-desktop.conf -auth /run/mc-xauth vt8 -nolisten tcp -novtswitch
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

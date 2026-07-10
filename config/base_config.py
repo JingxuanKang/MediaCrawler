@@ -58,11 +58,12 @@ SAVE_LOGIN_STATE = True
 # 是否启用 CDP 模式 - 使用用户本地的 Chrome/Edge 浏览器进行爬取，具有更好的反检测能力
 # 开启后，会自动检测并启动用户的 Chrome/Edge 浏览器，通过 CDP 协议进行控制
 # 该方式使用真实浏览器环境，包括用户的扩展、Cookie 和设置，大幅降低被风控检测的风险
-ENABLE_CDP_MODE = False  # 无头服务器无本地Chrome,关CDP用自带chromium
+# 按用户开关:crawler_manager 只对 allowlist 用户(如 jingxuan)注入 MC_CDP=1 → 连 Sunshine 桌面里的真 Chrome;
+# 其他用户 MC_CDP 未设 → False,照旧跑各自 headless chromium,不受影响。
+ENABLE_CDP_MODE = os.environ.get("MC_CDP", "0") == "1"
 
-# CDP 调试端口，用于与浏览器通信
-# 如果端口被占用，系统会自动尝试下一个可用端口
-CDP_DEBUG_PORT = 9222
+# CDP 调试端口(连已有真 Chrome 的 --remote-debugging-port)
+CDP_DEBUG_PORT = int(os.environ.get("MC_CDP_PORT", "9222"))
 
 # 自定义浏览器路径（可选）
 # 如果为空，系统会自动检测 Chrome/Edge 的安装路径
@@ -85,8 +86,8 @@ BROWSER_LAUNCH_TIMEOUT = 60
 CDP_CONNECT_EXISTING = True
 
 # 程序结束时是否自动关闭浏览器
-# 设置为 False 可以保持浏览器运行，方便调试
-AUTO_CLOSE_BROWSER = True
+# 连的是 Sunshine 桌面里的持久 Chrome,爬完绝不能关它(否则登录态没了、桌面空了)→ 恒 False
+AUTO_CLOSE_BROWSER = False
 
 # Data saving type option configuration, supports: csv, db, json, jsonl, sqlite, excel, postgres. It is best to save to DB, with deduplication function.
 SAVE_DATA_OPTION = "jsonl"  # csv or db or json or jsonl or sqlite or excel or postgres
