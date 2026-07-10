@@ -233,7 +233,8 @@ class CrawlerManager:
         if config.cookies:
             cmd.extend(["--cookies", config.cookies])
 
-        cmd.extend(["--headless", "true" if config.headless else "false"])
+        # 服务器无 X server(显示器),有头浏览器必崩;二维码已可在网页扫,无需有头 → 强制无头
+        cmd.extend(["--headless", "true"])
         return cmd
 
     async def _read_output(self):

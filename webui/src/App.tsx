@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { MainContent } from '@/components/layout/MainContent'
-import { AuthorFooter } from '@/components/layout/AuthorFooter'
 import { CrawlerConfigPanel } from '@/components/config/CrawlerConfigPanel'
 import { EnvironmentCheck, isEnvChecked } from '@/components/env/EnvironmentCheck'
 import { LoginPage } from '@/components/auth/LoginPage'
@@ -78,8 +77,6 @@ function App() {
         </div>
         <MainContent />
       </div>
-
-      <AuthorFooter />
 
       <Toaster
         position="top-right"

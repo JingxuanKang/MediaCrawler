@@ -380,20 +380,6 @@ export function CrawlerConfigPanel() {
               />
               <p className="text-xs font-mono text-cyber-text-primary">{t('field.subComments')}</p>
             </div>
-
-            <div className="flex items-center gap-3 rounded-lg border border-cyber-border-subtle bg-cyber-bg-tertiary/30 p-2.5 hover:border-cyber-border-DEFAULT transition-colors">
-              <Checkbox
-                checked={config.headless}
-                onCheckedChange={(checked) => updateConfig({ headless: checked === true })}
-                disabled={isDisabled}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-mono text-cyber-text-primary">{t('field.headlessMode')}</p>
-                <p className="text-[10px] text-cyber-text-muted leading-snug">
-                  {t('field.headlessModeHint')}
-                </p>
-              </div>
-            </div>
           </div>
         </Section>
       </div>
