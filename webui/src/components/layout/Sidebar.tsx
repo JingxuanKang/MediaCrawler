@@ -1,4 +1,4 @@
-import { Bug, Wifi, AlertTriangle, Github } from 'lucide-react'
+import { Bug, Wifi, Github } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { useCrawlerStore } from '@/store/crawlerStore'
@@ -10,9 +10,8 @@ interface SidebarProps {
   onShowDisclaimer?: () => void
 }
 
-export function Sidebar({ onShowDisclaimer }: SidebarProps) {
+export function Sidebar({}: SidebarProps) {
   const { t } = useTranslation()
-  const { t: tLicense } = useTranslation('license')
   const status = useCrawlerStore((state) => state.status)
 
   // Poll status
@@ -48,21 +47,8 @@ export function Sidebar({ onShowDisclaimer }: SidebarProps) {
           )}
         </div>
 
-        {/* Center: Warning Text */}
-        <button
-          onClick={onShowDisclaimer}
-          className="flex items-center gap-3 px-4 py-1.5 rounded-lg border border-cyber-neon-orange/50 bg-cyber-neon-orange/10 hover:bg-cyber-neon-orange/20 transition-all cursor-pointer"
-        >
-          <AlertTriangle className="w-4 h-4 text-cyber-neon-orange flex-shrink-0" />
-          <div className="flex items-center gap-4 text-xs font-mono">
-            <span className="text-cyber-neon-orange">
-              <span className="text-cyber-neon-pink font-bold">1.</span> {tLicense('content.line1')}
-            </span>
-            <span className="text-cyber-neon-orange">
-              <span className="text-cyber-neon-pink font-bold">2.</span> {tLicense('content.line2')}
-            </span>
-          </div>
-        </button>
+        {/* Center: spacer */}
+        <div className="flex-1" />
 
         {/* Right: Actions and Status */}
         <div className="flex items-center gap-3">
