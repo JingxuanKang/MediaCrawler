@@ -33,6 +33,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from .routers import crawler_router, data_router, websocket_router
+from .routers.auth_router import router as auth_router
+from .auth import require_user
+from fastapi import Depends
 
 # Project root directory (used for running subprocesses like uv run main.py)
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -61,6 +64,7 @@ app.add_middleware(
 )
 
 # Register routers
+app.include_router(auth_router, prefix="/api")  # 登录/登出/me,公开
 app.include_router(crawler_router, prefix="/api")
 app.include_router(data_router, prefix="/api")
 app.include_router(websocket_router, prefix="/api")
@@ -86,7 +90,7 @@ async def health_check():
 
 
 @app.get("/api/env/check")
-async def check_environment():
+async def check_environment(user: str = Depends(require_user)):
     """Check if MediaCrawler environment is configured correctly"""
     try:
         # Run uv run main.py --help command to check environment
@@ -148,7 +152,7 @@ async def check_environment():
 
 
 @app.get("/api/config/platforms")
-async def get_platforms():
+async def get_platforms(user: str = Depends(require_user)):
     """Get list of supported platforms"""
     return {
         "platforms": [
@@ -164,7 +168,7 @@ async def get_platforms():
 
 
 @app.get("/api/config/options")
-async def get_config_options():
+async def get_config_options(user: str = Depends(require_user)):
     """Get all configuration options"""
     return {
         "login_types": [

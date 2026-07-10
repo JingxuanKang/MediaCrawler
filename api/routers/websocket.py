@@ -17,133 +17,71 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 import asyncio
-from typing import Set, Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from ..services import crawler_manager
+from ..services import get_manager
+from ..auth import COOKIE_NAME, verify_session, load_users
 
 router = APIRouter(tags=["websocket"])
 
 
-class ConnectionManager:
-    """WebSocket connection manager"""
-
-    def __init__(self):
-        self.active_connections: Set[WebSocket] = set()
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.add(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.discard(websocket)
-
-    async def broadcast(self, message: dict):
-        """Broadcast message to all connections"""
-        if not self.active_connections:
-            return
-
-        disconnected = []
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception:
-                disconnected.append(connection)
-
-        # Clean up disconnected connections
-        for conn in disconnected:
-            self.disconnect(conn)
-
-
-manager = ConnectionManager()
-
-
-async def log_broadcaster():
-    """Background task: read logs from queue and broadcast"""
-    queue = crawler_manager.get_log_queue()
-    while True:
-        try:
-            # Get log entry from queue
-            entry = await queue.get()
-            # Broadcast to all WebSocket connections
-            await manager.broadcast(entry.model_dump())
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            print(f"Log broadcaster error: {e}")
-            await asyncio.sleep(0.1)
-
-
-# Global broadcast task
-_broadcaster_task: Optional[asyncio.Task] = None
-
-
-def start_broadcaster():
-    """Start broadcast task"""
-    global _broadcaster_task
-    if _broadcaster_task is None or _broadcaster_task.done():
-        _broadcaster_task = asyncio.create_task(log_broadcaster())
+def _ws_user(websocket: WebSocket):
+    """从 cookie 解析登录用户(同源 WS 握手自动带 cookie)。未登录返回 None。"""
+    user = verify_session(websocket.cookies.get(COOKIE_NAME))
+    if not user or user not in load_users():
+        return None
+    return user
 
 
 @router.websocket("/ws/logs")
 async def websocket_logs(websocket: WebSocket):
-    """WebSocket log stream"""
-    print("[WS] New connection attempt")
+    """本用户日志流:只推该用户自己的爬虫日志。"""
+    user = _ws_user(websocket)
+    if not user:
+        await websocket.close(code=1008)  # policy violation
+        return
+
+    await websocket.accept()
+    mgr = get_manager(user)
+    mgr.add_ws(websocket)
 
     try:
-        # Ensure broadcast task is running
-        start_broadcaster()
-
-        await manager.connect(websocket)
-        print(f"[WS] Connected, active connections: {len(manager.active_connections)}")
-
-        # Send existing logs
-        for log in crawler_manager.logs:
-            try:
-                await websocket.send_json(log.model_dump())
-            except Exception as e:
-                print(f"[WS] Error sending existing log: {e}")
-                break
-
-        print(f"[WS] Sent {len(crawler_manager.logs)} existing logs, entering main loop")
+        # 先补历史日志
+        for log in mgr.logs:
+            await websocket.send_json(log.model_dump())
 
         while True:
-            # Keep connection alive, receive heartbeat or any message
             try:
-                data = await asyncio.wait_for(
-                    websocket.receive_text(),
-                    timeout=30.0
-                )
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
                 if data == "ping":
                     await websocket.send_text("pong")
             except asyncio.TimeoutError:
-                # Send ping to keep connection alive
                 try:
                     await websocket.send_text("ping")
-                except Exception as e:
-                    print(f"[WS] Error sending ping: {e}")
+                except Exception:
                     break
-
     except WebSocketDisconnect:
-        print("[WS] Client disconnected")
-    except Exception as e:
-        print(f"[WS] Error: {type(e).__name__}: {e}")
+        pass
+    except Exception:
+        pass
     finally:
-        manager.disconnect(websocket)
-        print(f"[WS] Cleanup done, active connections: {len(manager.active_connections)}")
+        mgr.remove_ws(websocket)
 
 
 @router.websocket("/ws/status")
 async def websocket_status(websocket: WebSocket):
-    """WebSocket status stream"""
-    await websocket.accept()
+    """本用户状态流。"""
+    user = _ws_user(websocket)
+    if not user:
+        await websocket.close(code=1008)
+        return
 
+    await websocket.accept()
+    mgr = get_manager(user)
     try:
         while True:
-            # Send status every second
-            status = crawler_manager.get_status()
-            await websocket.send_json(status)
+            await websocket.send_json(mgr.get_status())
             await asyncio.sleep(1)
     except WebSocketDisconnect:
         pass

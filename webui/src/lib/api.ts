@@ -3,10 +3,29 @@ import axios from 'axios'
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+// 未登录(401)回调:App 注册,收到即弹登录页
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn
+}
+
+api.interceptors.response.use(
+  (resp) => resp,
+  (error) => {
+    const url: string = error?.config?.url || ''
+    // 登录接口自己的 401 不触发全局跳登录(交给登录页显示错误)
+    if (error?.response?.status === 401 && !url.includes('/auth/login')) {
+      onUnauthorized?.()
+    }
+    return Promise.reject(error)
+  }
+)
 
 // Types
 export interface CrawlerConfig {
@@ -99,6 +118,13 @@ export interface EnvCheckResult {
 
 export const envApi = {
   check: () => api.get<EnvCheckResult>('/env/check'),
+}
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    api.post<{ username: string }>('/auth/login', { username, password }),
+  logout: () => api.post('/auth/logout'),
+  me: () => api.get<{ username: string }>('/auth/me'),
 }
 
 export default api

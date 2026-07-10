@@ -1,4 +1,4 @@
-import { Bug, Wifi, Github } from 'lucide-react'
+import { Bug, Wifi, Github, LogOut, User } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { useCrawlerStore } from '@/store/crawlerStore'
@@ -7,10 +7,11 @@ import { LanguageSwitch } from './LanguageSwitch'
 import { ThemeToggle } from './ThemeToggle'
 
 interface SidebarProps {
-  onShowDisclaimer?: () => void
+  username?: string
+  onLogout?: () => void
 }
 
-export function Sidebar({}: SidebarProps) {
+export function Sidebar({ username, onLogout }: SidebarProps) {
   const { t } = useTranslation()
   const status = useCrawlerStore((state) => state.status)
 
@@ -52,6 +53,23 @@ export function Sidebar({}: SidebarProps) {
 
         {/* Right: Actions and Status */}
         <div className="flex items-center gap-3">
+          {/* Current user + logout */}
+          {username && (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-xs font-mono text-cyber-text-secondary">
+                <User className="w-3.5 h-3.5" />
+                {username}
+              </span>
+              <button
+                onClick={onLogout}
+                title="登出"
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-cyber-border-subtle hover:border-cyber-neon-orange hover:text-cyber-neon-orange text-cyber-text-secondary transition-all bg-cyber-bg-tertiary text-xs font-mono"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                登出
+              </button>
+            </div>
+          )}
           {/* Theme Toggle */}
           <ThemeToggle />
           {/* Language Switch */}

@@ -343,12 +343,12 @@ export function CrawlerConfigPanel() {
             </Select>
           </Field>
 
-          <Field label="账号 / 数据集" hint="不同账号填不同名字,数据分开存到 data/<账号>/;留空进公共 data/">
+          <Field label="子数据集(可选)" hint="在你自己的空间里再分层:填了就存到 你/<子集>/,方便按小号或主题分开;留空直接进你的根目录">
             <Input
               value={config.account}
               onChange={(e) => updateConfig({ account: e.target.value })}
               disabled={isDisabled}
-              placeholder="如 xiaohao-A"
+              placeholder="如 xiaohao-A / 美食"
               className="h-9 text-xs"
             />
           </Field>

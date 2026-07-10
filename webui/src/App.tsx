@@ -1,63 +1,82 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { MainContent } from '@/components/layout/MainContent'
 import { AuthorFooter } from '@/components/layout/AuthorFooter'
 import { CrawlerConfigPanel } from '@/components/config/CrawlerConfigPanel'
 import { EnvironmentCheck, isEnvChecked } from '@/components/env/EnvironmentCheck'
-import { LicenseDisclaimer, isLicenseAccepted } from '@/components/license/LicenseDisclaimer'
+import { LoginPage } from '@/components/auth/LoginPage'
+import { authApi, setUnauthorizedHandler } from '@/lib/api'
+
+type AuthState = 'checking' | 'anon' | 'authed'
 
 function App() {
-  // Initialize by checking localStorage if license has been accepted
-  const [licenseAccepted, setLicenseAccepted] = useState(() => isLicenseAccepted())
-  // Initialize by checking localStorage if env check has passed
+  const [authState, setAuthState] = useState<AuthState>('checking')
+  const [username, setUsername] = useState('')
   const [envChecked, setEnvChecked] = useState(() => isEnvChecked())
-  // State for showing disclaimer manually
-  const [showDisclaimer, setShowDisclaimer] = useState(false)
 
-  const handleEnvCheckComplete = () => {
-    setEnvChecked(true)
+  useEffect(() => {
+    // 会话过期或任意接口 401 → 退回登录页
+    setUnauthorizedHandler(() => setAuthState('anon'))
+    authApi
+      .me()
+      .then((resp) => {
+        setUsername(resp.data.username)
+        setAuthState('authed')
+      })
+      .catch(() => setAuthState('anon'))
+  }, [])
+
+  const handleLogin = (u: string) => {
+    setUsername(u)
+    setAuthState('authed')
   }
 
-  const handleLicenseAccept = () => {
-    setLicenseAccepted(true)
-    setShowDisclaimer(false)
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      /* ignore */
+    }
+    setUsername('')
+    setAuthState('anon')
   }
 
-  const handleShowDisclaimer = () => {
-    setShowDisclaimer(true)
+  if (authState === 'checking') {
+    return (
+      <div className="flex h-screen items-center justify-center cyber-grid bg-cyber-bg-primary text-xs font-mono text-cyber-text-muted">
+        加载中…
+      </div>
+    )
+  }
+
+  if (authState === 'anon') {
+    return (
+      <>
+        <LoginPage onLogin={handleLogin} />
+        <Toaster position="top-right" />
+      </>
+    )
   }
 
   return (
     <div className="flex flex-col h-screen cyber-grid overflow-hidden relative">
-      {/* License Disclaimer Modal - Shows first or when triggered */}
-      {(!licenseAccepted || showDisclaimer) && (
-        <LicenseDisclaimer onAccept={handleLicenseAccept} />
-      )}
-
-      {/* Environment Check Modal - Shows after license accepted */}
-      {licenseAccepted && !showDisclaimer && !envChecked && (
-        <EnvironmentCheck onCheckComplete={handleEnvCheckComplete} />
-      )}
+      {/* Environment Check Modal - 登录后跑 */}
+      {!envChecked && <EnvironmentCheck onCheckComplete={() => setEnvChecked(true)} />}
 
       {/* Header Bar */}
-      <Sidebar onShowDisclaimer={handleShowDisclaimer} />
+      <Sidebar username={username} onLogout={handleLogout} />
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col gap-4 p-4 overflow-hidden min-h-0">
-        {/* Config Panel - Primary Action Area (Always Expanded) */}
         <div className="flex-shrink-0">
           <CrawlerConfigPanel />
         </div>
-
-        {/* Console - Collapsible Terminal */}
         <MainContent />
       </div>
 
-      {/* Author Footer */}
       <AuthorFooter />
 
-      {/* Toast notifications - Theme-aware style */}
       <Toaster
         position="top-right"
         toastOptions={{

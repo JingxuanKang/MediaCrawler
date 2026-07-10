@@ -16,21 +16,22 @@
 # 详细许可条款请参阅项目根目录下的LICENSE文件。
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from ..schemas import CrawlerStartRequest, CrawlerStatusResponse
-from ..services import crawler_manager
+from ..services import get_manager
+from ..auth import require_user
 
 router = APIRouter(prefix="/crawler", tags=["crawler"])
 
 
 @router.post("/start")
-async def start_crawler(request: CrawlerStartRequest):
-    """Start crawler task"""
-    success = await crawler_manager.start(request)
+async def start_crawler(request: CrawlerStartRequest, user: str = Depends(require_user)):
+    """Start crawler task (本用户独立实例)"""
+    mgr = get_manager(user)
+    success = await mgr.start(request)
     if not success:
-        # Handle concurrent/duplicate requests: if process is already running, return 400 instead of 500
-        if crawler_manager.process and crawler_manager.process.poll() is None:
+        if mgr.process and mgr.process.poll() is None:
             raise HTTPException(status_code=400, detail="Crawler is already running")
         raise HTTPException(status_code=500, detail="Failed to start crawler")
 
@@ -38,12 +39,12 @@ async def start_crawler(request: CrawlerStartRequest):
 
 
 @router.post("/stop")
-async def stop_crawler():
+async def stop_crawler(user: str = Depends(require_user)):
     """Stop crawler task"""
-    success = await crawler_manager.stop()
+    mgr = get_manager(user)
+    success = await mgr.stop()
     if not success:
-        # Handle concurrent/duplicate requests: if process already exited/doesn't exist, return 400 instead of 500
-        if not crawler_manager.process or crawler_manager.process.poll() is not None:
+        if not mgr.process or mgr.process.poll() is not None:
             raise HTTPException(status_code=400, detail="No crawler is running")
         raise HTTPException(status_code=500, detail="Failed to stop crawler")
 
@@ -51,13 +52,14 @@ async def stop_crawler():
 
 
 @router.get("/status", response_model=CrawlerStatusResponse)
-async def get_crawler_status():
+async def get_crawler_status(user: str = Depends(require_user)):
     """Get crawler status"""
-    return crawler_manager.get_status()
+    return get_manager(user).get_status()
 
 
 @router.get("/logs")
-async def get_logs(limit: int = 100):
+async def get_logs(limit: int = 100, user: str = Depends(require_user)):
     """Get recent logs"""
-    logs = crawler_manager.logs[-limit:] if limit > 0 else crawler_manager.logs
+    mgr = get_manager(user)
+    logs = mgr.logs[-limit:] if limit > 0 else mgr.logs
     return {"logs": [log.model_dump() for log in logs]}
