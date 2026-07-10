@@ -20,6 +20,7 @@
 
 import asyncio
 import functools
+import os
 import sys
 from typing import Optional
 
@@ -208,6 +209,13 @@ class XiaoHongShuLogin(AbstractLogin):
 
         wait_redirect_seconds = 5
         utils.logger.info(f"[XiaoHongShuLogin.login_by_qrcode] Login successful then wait for {wait_redirect_seconds} seconds redirect ...")
+        # 登录成功:删掉二维码文件,WebUI 扫码浮层随之自动收起
+        _qr = os.environ.get("MC_QR_PATH")
+        if _qr:
+            try:
+                os.remove(_qr)
+            except OSError:
+                pass
         await asyncio.sleep(wait_redirect_seconds)
 
     async def login_by_cookies(self):

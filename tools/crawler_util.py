@@ -25,6 +25,7 @@
 
 import base64
 import json
+import os
 import random
 import re
 import urllib
@@ -86,7 +87,12 @@ async def find_qrcode_img_from_canvas(page: Page, canvas_selector: str) -> str:
 
 
 def show_qrcode(qr_code) -> None:  # type: ignore
-    """parse base64 encode qrcode image and show it"""
+    """parse base64 encode qrcode image and show it。
+
+    无头(WebUI)模式:设了环境变量 MC_QR_PATH 时,把二维码存成 PNG 文件,
+    由 /api/crawler/qr 提供给前端显示、用户手机扫;不弹本地 GUI 窗口。
+    桌面模式:仍走原来的 GUI 弹窗。
+    """
     if "," in qr_code:
         qr_code = qr_code.split(",")[1]
     qr_code = base64.b64decode(qr_code)
@@ -98,7 +104,22 @@ def show_qrcode(qr_code) -> None:  # type: ignore
     new_image.paste(image, (10, 10))
     draw = ImageDraw.Draw(new_image)
     draw.rectangle((0, 0, width + 19, height + 19), outline=(0, 0, 0), width=1)
-    del ImageShow.UnixViewer.options["save_all"]
+
+    qr_path = os.environ.get("MC_QR_PATH")
+    if qr_path:
+        try:
+            parent = os.path.dirname(qr_path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            new_image.save(qr_path, format="PNG")
+        except Exception as e:  # noqa
+            print(f"[show_qrcode] save qr failed: {e}")
+        return
+
+    try:
+        del ImageShow.UnixViewer.options["save_all"]
+    except Exception:  # noqa
+        pass
     new_image.show()
 
 

@@ -6,6 +6,7 @@ import { AuthorFooter } from '@/components/layout/AuthorFooter'
 import { CrawlerConfigPanel } from '@/components/config/CrawlerConfigPanel'
 import { EnvironmentCheck, isEnvChecked } from '@/components/env/EnvironmentCheck'
 import { LoginPage } from '@/components/auth/LoginPage'
+import { QrLoginCard } from '@/components/auth/QrLoginCard'
 import { authApi, setUnauthorizedHandler } from '@/lib/api'
 
 type AuthState = 'checking' | 'anon' | 'authed'
@@ -63,6 +64,9 @@ function App() {
     <div className="flex flex-col h-screen cyber-grid overflow-hidden relative">
       {/* Environment Check Modal - 登录后跑 */}
       {!envChecked && <EnvironmentCheck onCheckComplete={() => setEnvChecked(true)} />}
+
+      {/* 扫码登录浮层(QR 模式 + 运行中时自动出现) */}
+      <QrLoginCard />
 
       {/* Header Bar */}
       <Sidebar username={username} onLogout={handleLogout} />

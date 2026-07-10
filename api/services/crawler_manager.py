@@ -105,6 +105,10 @@ class CrawlerManager:
         acct = _safe_seg(getattr(config, "account", ""))
         return f"{base}/{acct}" if acct else base
 
+    def qr_file(self):
+        """扫码登录时二维码 PNG 落点(本用户根,不进子数据集)。"""
+        return self._project_root / "data" / self.user / "_qr.png"
+
     async def start(self, config: CrawlerStartRequest) -> bool:
         async with self._lock:
             if self.process and self.process.poll() is None:
@@ -112,6 +116,12 @@ class CrawlerManager:
 
             self._logs = []
             self._log_id = 0
+
+            # 清掉上一轮的二维码,避免前端扫到过期码
+            try:
+                self.qr_file().unlink(missing_ok=True)
+            except Exception:
+                pass
 
             cmd = self._build_command(config)
 
@@ -132,6 +142,8 @@ class CrawlerManager:
                         "PYTHONUNBUFFERED": "1",
                         # 按登录用户分区:数据落 data/<用户>[/<账号>]/,base_config 读该环境变量
                         "MC_SAVE_DATA_PATH": self._data_path(config),
+                        # 扫码登录:无头浏览器把二维码写到这个 PNG,前端拉去显示
+                        "MC_QR_PATH": f"data/{self.user}/_qr.png",
                     },
                 )
 

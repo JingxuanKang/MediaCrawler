@@ -17,6 +17,7 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
 
 from ..schemas import CrawlerStartRequest, CrawlerStatusResponse
 from ..services import get_manager
@@ -63,3 +64,15 @@ async def get_logs(limit: int = 100, user: str = Depends(require_user)):
     mgr = get_manager(user)
     logs = mgr.logs[-limit:] if limit > 0 else mgr.logs
     return {"logs": [log.model_dump() for log in logs]}
+
+
+@router.get("/qr")
+async def get_login_qr(user: str = Depends(require_user)):
+    """扫码登录二维码(无头浏览器写出的 PNG)。没有则 404。"""
+    qr = get_manager(user).qr_file()
+    if not qr.exists():
+        raise HTTPException(status_code=404, detail="no qrcode")
+    return FileResponse(
+        qr, media_type="image/png",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
