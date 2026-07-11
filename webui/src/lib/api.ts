@@ -124,7 +124,7 @@ export const authApi = {
   login: (username: string, password: string) =>
     api.post<{ username: string }>('/auth/login', { username, password }),
   logout: () => api.post('/auth/logout'),
-  me: () => api.get<{ username: string }>('/auth/me'),
+  me: () => api.get<{ username: string; cdp: boolean }>('/auth/me'),
 }
 
 export default api

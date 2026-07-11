@@ -185,7 +185,8 @@ class CrawlerManager:
 
             try:
                 self.process.send_signal(signal.SIGTERM)
-                for _ in range(30):
+                # 宽限 3s(采集是 asyncio,SIGTERM 未必立刻中断当前批;别让用户等 15s)
+                for _ in range(6):
                     if self.process.poll() is not None:
                         break
                     await asyncio.sleep(0.5)

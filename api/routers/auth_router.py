@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request, Response, HTTPException, Depends
 from pydantic import BaseModel
 
 from .. import auth
+from ..services.crawler_manager import CDP_USERS
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -63,4 +64,5 @@ async def logout(response: Response):
 
 @router.get("/me")
 async def me(user: str = Depends(auth.require_user)):
-    return {"username": user}
+    # cdp=True 的用户走 chrome.jingxuan.uk 桌面登录(连真 Chromium),前端不弹扫码浮层
+    return {"username": user, "cdp": user in CDP_USERS}

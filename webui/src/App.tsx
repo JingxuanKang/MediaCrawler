@@ -13,6 +13,7 @@ type AuthState = 'checking' | 'anon' | 'authed'
 function App() {
   const [authState, setAuthState] = useState<AuthState>('checking')
   const [username, setUsername] = useState('')
+  const [cdp, setCdp] = useState(false)
   const [envChecked, setEnvChecked] = useState(() => isEnvChecked())
 
   useEffect(() => {
@@ -22,6 +23,7 @@ function App() {
       .me()
       .then((resp) => {
         setUsername(resp.data.username)
+        setCdp(resp.data.cdp)
         setAuthState('authed')
       })
       .catch(() => setAuthState('anon'))
@@ -64,8 +66,8 @@ function App() {
       {/* Environment Check Modal - 登录后跑 */}
       {!envChecked && <EnvironmentCheck onCheckComplete={() => setEnvChecked(true)} />}
 
-      {/* 扫码登录浮层(QR 模式 + 运行中时自动出现) */}
-      <QrLoginCard />
+      {/* 扫码登录浮层(QR 模式 + 运行中时自动出现);CDP 用户走桌面登录,不弹扫码 */}
+      <QrLoginCard cdp={cdp} />
 
       {/* Header Bar */}
       <Sidebar username={username} onLogout={handleLogout} />

@@ -6,10 +6,11 @@ import { useCrawlerStore } from '@/store/crawlerStore'
  * 无头浏览器写出二维码后显示出来给用户手机扫。登录成功后后端删除二维码文件
  * → 轮询转 404 → 浮层自动收起。
  */
-export function QrLoginCard() {
+export function QrLoginCard({ cdp = false }: { cdp?: boolean }) {
   const loginType = useCrawlerStore((s) => s.config.login_type)
   const status = useCrawlerStore((s) => s.status)
-  const active = loginType === 'qrcode' && status === 'running'
+  // CDP 用户走 chrome.jingxuan.uk 桌面登录小红书(连真 Chromium),不在这里扫码
+  const active = !cdp && loginType === 'qrcode' && status === 'running'
   const [imgUrl, setImgUrl] = useState<string | null>(null)
 
   useEffect(() => {
