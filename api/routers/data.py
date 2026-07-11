@@ -28,8 +28,10 @@ from ..auth import require_user
 
 router = APIRouter(prefix="/data", tags=["data"])
 
-# 全部数据根;每个登录用户只看自己 data/<用户>/ 这一子树
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+# 全部数据根;每个登录用户只看自己 <root>/<用户>/ 这一子树。
+# MC_DATA_ROOT 可指 NAS 挂载(如 /mnt/mc-nas),与爬虫落盘保持一致;默认项目本地 data/。
+_mc_root = os.environ.get("MC_DATA_ROOT")
+DATA_DIR = Path(_mc_root) if _mc_root else (Path(__file__).parent.parent.parent / "data")
 
 
 def _user_dir(user: str) -> Path:

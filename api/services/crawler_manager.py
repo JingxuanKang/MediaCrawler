@@ -107,8 +107,10 @@ class CrawlerManager:
         return "info"
 
     def _data_path(self, config: CrawlerStartRequest) -> str:
-        """本用户数据根 data/<用户>/;若填了账号/数据集再套一层 data/<用户>/<账号>/。"""
-        base = f"data/{self.user}"
+        """本用户数据根 <MC_DATA_ROOT>/<用户>/(默认 data/,可指 NAS 挂载如 /mnt/mc-nas);
+        若填了账号/数据集再套一层 .../<账号>/。"""
+        root = os.environ.get("MC_DATA_ROOT", "data")
+        base = f"{root}/{self.user}"
         acct = _safe_seg(getattr(config, "account", ""))
         return f"{base}/{acct}" if acct else base
 

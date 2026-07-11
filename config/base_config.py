@@ -107,8 +107,8 @@ CRAWLER_MAX_NOTES_COUNT = 15
 # Controlling the number of concurrent crawlers
 MAX_CONCURRENCY_NUM = 1
 
-# Whether to enable crawling media mode (including image or video resources), crawling media is not enabled by default
-ENABLE_GET_MEIDAS = False
+# 是否下载图片/视频文件本身(默认只存 URL);env MC_GET_MEDIAS=1 打开 → 落 <数据根>/<用户>/xhs/{images,videos}/
+ENABLE_GET_MEIDAS = os.environ.get("MC_GET_MEDIAS", "0") == "1"
 
 # Whether to enable comment crawling mode. Comment crawling is enabled by default.
 ENABLE_GET_COMMENTS = True

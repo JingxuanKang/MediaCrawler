@@ -6,16 +6,21 @@
 # （用户 ID、IP 归属地、头像、主页链接、签名、性别等一律不采集；
 # 昵称保留但做中间脱敏）。本模块提供匿名化与脱敏工具。
 import hashlib
+import os
+
+# 默认脱敏(教学版隐私保护);env MC_ANONYMIZE=0 关闭 → 存真实 user_id / 昵称(对标真实博主用)
+_ANON = os.environ.get("MC_ANONYMIZE", "1") == "1"
 
 
 def anonymize_user_id(user_id) -> str:
-    """把原始用户 ID 转成匿名哈希，用于内容/评论记录的创作者分组，
-    不暴露真实身份。返回 sha256 截断 16 位的十六进制串。"""
+    """把原始用户 ID 转成匿名哈希；MC_ANONYMIZE=0 时直接返回真实 user_id。"""
     if user_id is None:
         return ""
     s = str(user_id).strip()
     if not s:
         return ""
+    if not _ANON:
+        return s
     return hashlib.sha256(s.encode("utf-8")).hexdigest()[:16]
 
 
@@ -29,6 +34,8 @@ def mask_nickname(name) -> str:
     if name is None:
         return ""
     s = str(name)
+    if not _ANON:
+        return s
     if len(s) <= 1:
         return "*"
     if len(s) == 2:
