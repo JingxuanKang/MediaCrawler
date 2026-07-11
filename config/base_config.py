@@ -58,8 +58,8 @@ SAVE_LOGIN_STATE = True
 # 是否启用 CDP 模式 - 使用用户本地的 Chrome/Edge 浏览器进行爬取，具有更好的反检测能力
 # 开启后，会自动检测并启动用户的 Chrome/Edge 浏览器，通过 CDP 协议进行控制
 # 该方式使用真实浏览器环境，包括用户的扩展、Cookie 和设置，大幅降低被风控检测的风险
-# 按用户开关:crawler_manager 只对 allowlist 用户(如 jingxuan)注入 MC_CDP=1 → 连 Sunshine 桌面里的真 Chrome;
-# 其他用户 MC_CDP 未设 → False,照旧跑各自 headless chromium,不受影响。
+# 按用户开关:crawler_manager 只对 allowlist 用户(如 jingxuan)注入 MC_CDP=1 → 连 chrome.jingxuan.uk
+# 那个 Selkies Chromium(host 网络,CDP 9222)驱动;其他用户 MC_CDP 未设 → False,照旧各自 headless,不受影响。
 ENABLE_CDP_MODE = os.environ.get("MC_CDP", "0") == "1"
 
 # CDP 调试端口(连已有真 Chrome 的 --remote-debugging-port)
