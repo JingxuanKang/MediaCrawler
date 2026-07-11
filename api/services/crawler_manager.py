@@ -155,6 +155,9 @@ class CrawlerManager:
                         "MC_QR_PATH": f"data/{self.user}/_qr.png",
                         # 白名单用户走 CDP:连 chrome.jingxuan.uk 的 Selkies Chromium(localhost:9222),真实指纹低风控
                         **({"MC_CDP": "1"} if self.user in CDP_USERS else {}),
+                        # 抓取间隔秒(悠着抓,降 CAPTCHA);未填则继承默认 2s
+                        **({"MC_SLEEP": str(config.crawl_interval)}
+                           if getattr(config, "crawl_interval", None) is not None else {}),
                     },
                 )
 

@@ -60,6 +60,8 @@ const defaultConfig: CrawlerConfig = {
   cookies: '',
   headless: false,
   account: '',
+  max_notes_count: 10,
+  crawl_interval: 3,
 }
 
 export const useCrawlerStore = create<CrawlerState>((set, get) => ({

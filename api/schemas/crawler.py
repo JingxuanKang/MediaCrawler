@@ -77,6 +77,7 @@ class CrawlerStartRequest(BaseModel):
     headless: bool = False
     max_notes_count: Optional[int] = Field(default=None, ge=1, le=MAX_API_LIMIT_COUNT)
     max_comments_count: Optional[int] = Field(default=None, ge=1, le=MAX_API_LIMIT_COUNT)
+    crawl_interval: Optional[int] = Field(default=None, ge=0, le=60)  # 每条抓取间隔秒(悠着抓)
 
 
 class CrawlerStatusResponse(BaseModel):

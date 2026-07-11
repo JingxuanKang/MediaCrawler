@@ -11,7 +11,9 @@ export interface CrawlerConfig {
   save_option: string
   cookies: string
   headless: boolean
-  account: string    // 账号/数据集名 → data/<account>/
+  account: string          // 账号/数据集名 → data/<account>/
+  max_notes_count: number  // 最多抓几条
+  crawl_interval: number   // 每条抓取间隔秒(悠着抓)
 }
 
 export interface CrawlerStatus {

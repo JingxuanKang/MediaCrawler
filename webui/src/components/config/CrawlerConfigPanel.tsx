@@ -353,6 +353,29 @@ export function CrawlerConfigPanel() {
             />
           </Field>
 
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="最多抓几条" hint="单次上限;小红书猛抓易撞验证码,建议先 5-10 试">
+              <Input
+                type="number"
+                min={1}
+                value={config.max_notes_count}
+                onChange={(e) => updateConfig({ max_notes_count: parseInt(e.target.value) || 1 })}
+                disabled={isDisabled}
+                className="h-9 text-xs"
+              />
+            </Field>
+            <Field label="每条间隔秒" hint="悠着抓、降风控;越大越稳(建议 3-5)">
+              <Input
+                type="number"
+                min={0}
+                value={config.crawl_interval}
+                onChange={(e) => updateConfig({ crawl_interval: parseInt(e.target.value) || 0 })}
+                disabled={isDisabled}
+                className="h-9 text-xs"
+              />
+            </Field>
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center gap-3 rounded-lg border border-cyber-border-subtle bg-cyber-bg-tertiary/30 p-2.5 hover:border-cyber-border-DEFAULT transition-colors">
               <Checkbox
