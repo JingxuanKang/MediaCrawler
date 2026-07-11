@@ -9,4 +9,7 @@ export MC_GET_MEDIAS=1                    # 下载图片/视频文件本身(非�
 export MC_ANONYMIZE=0                     # 存真实作者 user_id / 昵称(不脱敏)
 # CDP 白名单(默认 jingxuan);如需改 export MC_CDP_USERS=a,b
 
+# 给 xhs-sync 拉登录态的提供口密钥(= xhs bridge secret);存本地文件,不入 git
+[ -f "$HOME/.mc-provider-secret" ] && export MC_PROVIDER_SECRET="$(cat "$HOME/.mc-provider-secret")"
+
 exec .venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 8080

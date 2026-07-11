@@ -27,7 +27,7 @@ import sys
 import subprocess
 from pathlib import Path
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -87,6 +87,28 @@ async def serve_frontend():
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/browser/xhs_cookie")
+async def browser_xhs_cookie(x_provider_secret: str = Header(default="")):
+    """给 media-sync/xhs-sync 拉登录态:读本地 Chromium(CDP 9222)的小红书 cookie。
+    密钥 MC_PROVIDER_SECRET(= xhs bridge secret)保护;CDP 不外露,只本机读、经这个 HTTP 口出。"""
+    sec = os.environ.get("MC_PROVIDER_SECRET", "")
+    if not sec or x_provider_secret != sec:
+        raise HTTPException(status_code=401, detail="provider secret 不符")
+    port = os.environ.get("MC_CDP_PORT", "9222")
+    from playwright.async_api import async_playwright
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(f"http://localhost:{port}")
+            ctx = browser.contexts[0]
+            cks = await ctx.cookies()
+            await browser.close()
+    except Exception as e:  # noqa
+        raise HTTPException(status_code=503, detail=f"读 CDP 失败:{e}")
+    xhs = [{"name": c["name"], "value": c["value"]}
+           for c in cks if "xiaohongshu" in (c.get("domain") or "")]
+    return {"platform": "xhs", "cookies": xhs}
 
 
 @app.get("/api/env/check")
