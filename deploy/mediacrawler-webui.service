@@ -1,0 +1,28 @@
+# systemd --user 单元草案:让 MediaCrawler WebUI 随 linux 开机自启、崩溃自拉起。
+# 尚未在 linux 上启用;启用步骤见 Deploy.md「开机自启」。
+#
+# 安装位置:linux:~/.config/systemd/user/mediacrawler-webui.service
+# 前提:loginctl enable-linger $USER(不登录也跑 user 单元)
+
+[Unit]
+Description=MediaCrawler WebUI (crawl.jingxuan.uk)
+After=network-online.target
+Wants=network-online.target
+# NAS 挂载(nas-mc.service)是系统级单元,user 单元无法排序依赖它。
+# run-webui.sh 在数据目录没挂上时退出,这里无限重试,等挂载就绪。
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Build/MediaCrawler
+# uv 在 ~/.local/bin;爬虫子进程用 uv run 启动
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash %h/Build/MediaCrawler/run-webui.sh
+Restart=on-failure
+RestartSec=15
+# 停服务时先给 uvicorn 发 SIGTERM,超时后连爬虫子进程一起 SIGKILL
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode, KeyboardEvent } from 'react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Database, Globe, KeyRound, MessageSquare, Play, Square, X } from 'lucide-react'
 import { Label } from '@/components/ui/label'
@@ -10,6 +11,48 @@ import { Button } from '@/components/ui/button'
 import { useCrawlerStore } from '@/store/crawlerStore'
 import { usePlatforms, useConfigOptions, useStartCrawler, useStopCrawler } from '@/hooks/useCrawler'
 import { ParsedIdList } from './ParsedIdList'
+import type { CrawlerConfig } from '@/types/crawler'
+
+// 与后端 api/schemas/crawler.py 的上限一致
+const MAX_KEYWORDS = 20
+const MAX_KEYWORD_LEN = 50
+const MAX_NOTES = 10000
+const MAX_INTERVAL = 60
+const ACCOUNT_RE = /^[\p{L}\p{N}_-]{0,64}$/u
+
+function splitKeywords(text: string): string[] {
+  return text.split(/[,，]/).map((k) => k.trim()).filter(Boolean)
+}
+
+function hasIds(text: string): boolean {
+  return text.split(/[,，\s]+/).some(Boolean)
+}
+
+/** 启动前校验;返回第一条问题,没有问题返回 null。 */
+function validateConfig(c: CrawlerConfig): string | null {
+  if (c.crawler_type === 'search') {
+    const kws = splitKeywords(c.keywords)
+    if (kws.length === 0) return '搜索模式需要至少一个关键词(输入后按回车)'
+    if (kws.length > MAX_KEYWORDS) return `关键词最多 ${MAX_KEYWORDS} 个`
+    if (kws.some((k) => k.length > MAX_KEYWORD_LEN)) return `单个关键词最多 ${MAX_KEYWORD_LEN} 字`
+  }
+  if (c.crawler_type === 'detail' && !hasIds(c.specified_ids)) return '详情模式需要至少一个帖子/视频 ID'
+  if (c.crawler_type === 'creator' && !hasIds(c.creator_ids)) return '创作者模式需要至少一个创作者 ID'
+  if (!Number.isInteger(c.start_page) || c.start_page < 1) return '起始页至少为 1'
+  if (!Number.isInteger(c.max_notes_count) || c.max_notes_count < 1 || c.max_notes_count > MAX_NOTES) {
+    return `最多抓几条:填 1 到 ${MAX_NOTES} 的整数`
+  }
+  if (!Number.isInteger(c.crawl_interval) || c.crawl_interval < 0 || c.crawl_interval > MAX_INTERVAL) {
+    return `每条间隔秒:填 0 到 ${MAX_INTERVAL} 的整数`
+  }
+  if (!ACCOUNT_RE.test(c.account.trim())) return '子数据集名只用中英文、数字、下划线和连字符,最多 64 字'
+  return null
+}
+
+/** 数字输入框:允许清空再输入(清空时存 NaN,由校验拦下),不再自动跳回 1。 */
+function toNumber(v: string): number {
+  return v === '' ? Number.NaN : Number(v)
+}
 
 type SectionProps = {
   title: string
@@ -79,15 +122,19 @@ function KeywordInput({ value, onChange, placeholder, disabled }: KeywordInputPr
   // 将逗号分隔的字符串转换为数组
   const keywords = value ? value.split(',').map((k) => k.trim()).filter(Boolean) : []
 
+  // 把输入框里的文字收成关键词;支持一次粘贴多个(中英文逗号分隔)
+  const commit = () => {
+    const added = splitKeywords(inputValue).filter((k) => !keywords.includes(k))
+    if (added.length > 0) onChange([...keywords, ...new Set(added)].join(','))
+    setInputValue('')
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault()
-      const trimmed = inputValue.trim()
-      if (trimmed && !keywords.includes(trimmed)) {
-        const newKeywords = [...keywords, trimmed]
-        onChange(newKeywords.join(','))
-        setInputValue('')
-      }
+      commit()
+    } else if (e.key === 'Backspace' && inputValue === '' && keywords.length > 0) {
+      onChange(keywords.slice(0, -1).join(','))
     }
   }
 
@@ -102,6 +149,7 @@ function KeywordInput({ value, onChange, placeholder, disabled }: KeywordInputPr
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onBlur={commit}
         placeholder={placeholder}
         disabled={disabled}
         className="h-9 text-xs"
@@ -118,6 +166,7 @@ function KeywordInput({ value, onChange, placeholder, disabled }: KeywordInputPr
                 <button
                   type="button"
                   onClick={() => removeKeyword(keyword)}
+                  aria-label={`删除关键词 ${keyword}`}
                   className="hover:text-cyber-neon-pink transition-colors"
                 >
                   <X className="w-3 h-3" />
@@ -146,9 +195,28 @@ export function CrawlerConfigPanel() {
   const isRunning = status === 'running'
   const isBusy = isStarting || isStopping || status === 'stopping'
 
+  const [formError, setFormError] = useState<string | null>(null)
+
   const handleStart = () => {
-    startCrawler(config)
+    // 读最新的 store:关键词框失焦时刚提交的内容也算进来
+    const latest = useCrawlerStore.getState().config
+    const problem = validateConfig(latest)
+    setFormError(problem)
+    if (problem) {
+      toast.error(problem)
+      return
+    }
+    startCrawler({ ...latest, account: latest.account.trim() })
   }
+
+  const update = (patch: Partial<CrawlerConfig>) => {
+    if (formError) setFormError(null)
+    updateConfig(patch)
+  }
+
+  // 选项名走 i18n(后端只给英文名),没有译名时回落到后端 label
+  const optionLabel = (group: string, value: string, fallback: string) =>
+    t(`option.${group}.${value}`, { defaultValue: fallback })
 
   const handleStop = () => {
     stopCrawler()
@@ -167,7 +235,7 @@ export function CrawlerConfigPanel() {
           <Field label={t('field.platform')}>
             <Select
               value={config.platform}
-              onValueChange={(value) => updateConfig({ platform: value })}
+              onValueChange={(value) => update({ platform: value })}
               disabled={isDisabled}
             >
               <SelectTrigger className="h-9 text-xs">
@@ -176,7 +244,7 @@ export function CrawlerConfigPanel() {
               <SelectContent>
                 {platforms?.map((platform) => (
                   <SelectItem key={platform.value} value={platform.value}>
-                    {platform.label}
+                    {optionLabel('platform', platform.value, platform.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -187,7 +255,7 @@ export function CrawlerConfigPanel() {
             <Field label={t('field.crawlType')}>
               <Select
                 value={config.crawler_type}
-                onValueChange={(value) => updateConfig({ crawler_type: value })}
+                onValueChange={(value) => update({ crawler_type: value })}
                 disabled={isDisabled}
               >
                 <SelectTrigger className="h-9 text-xs">
@@ -196,7 +264,7 @@ export function CrawlerConfigPanel() {
                 <SelectContent>
                   {options?.crawler_types.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
-                      {type.label}
+                      {optionLabel('crawlerType', type.value, type.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -207,8 +275,9 @@ export function CrawlerConfigPanel() {
               <Input
                 type="number"
                 min={1}
-                value={config.start_page}
-                onChange={(e) => updateConfig({ start_page: parseInt(e.target.value) || 1 })}
+                max={1000}
+                value={Number.isNaN(config.start_page) ? '' : config.start_page}
+                onChange={(e) => update({ start_page: toNumber(e.target.value) })}
                 disabled={isDisabled}
                 className="h-9 text-xs"
               />
@@ -221,7 +290,7 @@ export function CrawlerConfigPanel() {
               <KeywordInput
                 placeholder={t('field.keywordsPlaceholder')}
                 value={config.keywords}
-                onChange={(keywords) => updateConfig({ keywords })}
+                onChange={(keywords) => update({ keywords })}
                 disabled={isDisabled}
               />
             </Field>
@@ -231,7 +300,7 @@ export function CrawlerConfigPanel() {
             <Field label={t('field.specifiedIds')} hint={t('field.specifiedIdsHint')}>
               <textarea
                 value={config.specified_ids}
-                onChange={(e) => updateConfig({ specified_ids: e.target.value })}
+                onChange={(e) => update({ specified_ids: e.target.value })}
                 disabled={isDisabled}
                 placeholder={t(`field.specifiedIdsPlaceholder.${config.platform}`, t('field.specifiedIdsPlaceholder.default'))}
                 className="min-h-[60px] w-full rounded-md border border-cyber-border-DEFAULT bg-cyber-bg-tertiary px-3 py-2 text-xs font-mono text-cyber-text-primary placeholder:text-cyber-text-muted focus-visible:outline-none focus-visible:border-cyber-neon-cyan/50 focus-visible:shadow-cyber-soft disabled:cursor-not-allowed disabled:opacity-50 transition-all resize-none"
@@ -254,7 +323,7 @@ export function CrawlerConfigPanel() {
             <Field label={t('field.creatorIds')} hint={t('field.creatorIdsHint')}>
               <textarea
                 value={config.creator_ids}
-                onChange={(e) => updateConfig({ creator_ids: e.target.value })}
+                onChange={(e) => update({ creator_ids: e.target.value })}
                 disabled={isDisabled}
                 placeholder={t(`field.creatorIdsPlaceholder.${config.platform}`, t('field.creatorIdsPlaceholder.default'))}
                 className="min-h-[60px] w-full rounded-md border border-cyber-border-DEFAULT bg-cyber-bg-tertiary px-3 py-2 text-xs font-mono text-cyber-text-primary placeholder:text-cyber-text-muted focus-visible:outline-none focus-visible:border-cyber-neon-cyan/50 focus-visible:shadow-cyber-soft disabled:cursor-not-allowed disabled:opacity-50 transition-all resize-none"
@@ -283,7 +352,7 @@ export function CrawlerConfigPanel() {
           <Field label={t('field.loginMethod')}>
             <Select
               value={config.login_type}
-              onValueChange={(value) => updateConfig({ login_type: value })}
+              onValueChange={(value) => update({ login_type: value })}
               disabled={isDisabled}
             >
               <SelectTrigger className="h-9 text-xs">
@@ -292,7 +361,7 @@ export function CrawlerConfigPanel() {
               <SelectContent>
                 {options?.login_types.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                    {optionLabel('loginType', type.value, type.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -303,7 +372,7 @@ export function CrawlerConfigPanel() {
             <Field label={t('field.cookies')} hint={t('field.cookiesHint')}>
               <textarea
                 value={config.cookies}
-                onChange={(e) => updateConfig({ cookies: e.target.value })}
+                onChange={(e) => update({ cookies: e.target.value })}
                 disabled={isDisabled}
                 placeholder={t('field.cookiesPlaceholder')}
                 className="min-h-[80px] w-full rounded-md border border-cyber-border-DEFAULT bg-cyber-bg-tertiary px-3 py-2 text-xs font-mono text-cyber-text-primary placeholder:text-cyber-text-muted focus-visible:outline-none focus-visible:border-cyber-neon-cyan/50 focus-visible:shadow-cyber-soft disabled:cursor-not-allowed disabled:opacity-50 transition-all resize-none"
@@ -327,7 +396,7 @@ export function CrawlerConfigPanel() {
           <Field label={t('field.saveFormat')}>
             <Select
               value={config.save_option}
-              onValueChange={(value) => updateConfig({ save_option: value })}
+              onValueChange={(value) => update({ save_option: value })}
               disabled={isDisabled}
             >
               <SelectTrigger className="h-9 text-xs">
@@ -336,40 +405,43 @@ export function CrawlerConfigPanel() {
               <SelectContent>
                 {options?.save_options.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {optionLabel('saveOption', option.value, option.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
 
-          <Field label="子数据集(可选)" hint="在你自己的空间里再分层:填了就存到 你/<子集>/,方便按小号或主题分开;留空直接进你的根目录">
+          <Field label="子数据集(可选)" hint="填了就存到 <你>/<子数据集>/,按小号或主题分开;留空存到你的根目录。只用中英文、数字、下划线、连字符">
             <Input
               value={config.account}
-              onChange={(e) => updateConfig({ account: e.target.value })}
+              onChange={(e) => update({ account: e.target.value })}
               disabled={isDisabled}
-              placeholder="如 xiaohao-A / 美食"
+              maxLength={64}
+              placeholder="如 xiaohao-A 或 美食"
               className="h-9 text-xs"
             />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="最多抓几条" hint="单次上限;小红书猛抓易撞验证码,建议先 5-10 试">
+            <Field label="最多抓几条" hint={`单次上限 1-${MAX_NOTES};小红书抓多了易撞验证码,建议先试 5-10`}>
               <Input
                 type="number"
                 min={1}
-                value={config.max_notes_count}
-                onChange={(e) => updateConfig({ max_notes_count: parseInt(e.target.value) || 1 })}
+                max={MAX_NOTES}
+                value={Number.isNaN(config.max_notes_count) ? '' : config.max_notes_count}
+                onChange={(e) => update({ max_notes_count: toNumber(e.target.value) })}
                 disabled={isDisabled}
                 className="h-9 text-xs"
               />
             </Field>
-            <Field label="每条间隔秒" hint="悠着抓、降风控;越大越稳(建议 3-5)">
+            <Field label="每条间隔秒" hint={`0-${MAX_INTERVAL};间隔越大越不易触发风控,建议 3-5`}>
               <Input
                 type="number"
                 min={0}
-                value={config.crawl_interval}
-                onChange={(e) => updateConfig({ crawl_interval: parseInt(e.target.value) || 0 })}
+                max={MAX_INTERVAL}
+                value={Number.isNaN(config.crawl_interval) ? '' : config.crawl_interval}
+                onChange={(e) => update({ crawl_interval: toNumber(e.target.value) })}
                 disabled={isDisabled}
                 className="h-9 text-xs"
               />
@@ -382,7 +454,7 @@ export function CrawlerConfigPanel() {
                 checked={config.enable_comments}
                 onCheckedChange={(checked) => {
                   const isChecked = checked === true
-                  updateConfig({
+                  update({
                     enable_comments: isChecked,
                     enable_sub_comments: isChecked ? config.enable_sub_comments : false,
                   })
@@ -398,7 +470,7 @@ export function CrawlerConfigPanel() {
             <div className="flex items-center gap-3 rounded-lg border border-cyber-border-subtle bg-cyber-bg-tertiary/30 p-2.5 hover:border-cyber-border-DEFAULT transition-colors">
               <Checkbox
                 checked={config.enable_sub_comments}
-                onCheckedChange={(checked) => updateConfig({ enable_sub_comments: checked === true })}
+                onCheckedChange={(checked) => update({ enable_sub_comments: checked === true })}
                 disabled={isDisabled || !config.enable_comments}
               />
               <p className="text-xs font-mono text-cyber-text-primary">{t('field.subComments')}</p>
@@ -408,7 +480,12 @@ export function CrawlerConfigPanel() {
       </div>
 
       {/* Row 2: Start/Stop Button - Full Width */}
-      <div className="w-full">
+      <div className="w-full space-y-2">
+        {formError && !isRunning && (
+          <div role="alert" className="rounded-md border border-cyber-neon-orange/40 bg-cyber-neon-orange/10 px-3 py-2 text-xs text-cyber-neon-orange font-mono">
+            {formError}
+          </div>
+        )}
         {isRunning ? (
           <Button
             onClick={handleStop}

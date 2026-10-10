@@ -5,12 +5,13 @@
   },
   "explorer": {
     "title": "CAPTURED_PAYLOAD_MATRIX",
-    "records": "{{count}} RECORDS",
+    "records": "{{count}} files",
     "rescan": "RESCAN",
     "loading": "[LOADING] Scanning payload directory...",
     "noData": "NO_DATA_CAPTURED",
     "noDataHint": "Initialize crawler to begin data extraction sequence. Results will appear here upon completion.",
-    "allCategories": "ALL"
+    "allCategories": "ALL",
+    "loadFailed": "Failed to read the data directory"
   },
   "file": {
     "entries": "{{count}} entries",

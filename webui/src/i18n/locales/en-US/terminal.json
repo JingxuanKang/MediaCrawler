@@ -4,7 +4,9 @@
     "entries": "{{count}} entries",
     "active": "ACTIVE",
     "clear": "CLEAR",
-    "restore": "RESTORE ALL LOGS"
+    "restore": "RESTORE ALL LOGS",
+    "offline": "Live log offline",
+    "offlineHint": "WebSocket is down; logs refresh every 3 s"
   },
   "banner": {
     "systemInit": "[SYS] System initialized successfully",
@@ -12,5 +14,13 @@
   },
   "footer": {
     "awaiting": "awaiting_command..."
+  },
+  "truncated": "Only the latest {{count}} lines are kept",
+  "jumpToLatest": "Jump to latest",
+  "status": {
+    "idle": "IDLE",
+    "running": "RUNNING",
+    "stopping": "STOPPING",
+    "error": "ERROR"
   }
 }

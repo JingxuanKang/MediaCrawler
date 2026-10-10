@@ -2,7 +2,7 @@ import { useState, FormEvent } from 'react'
 import { Bug } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { authApi } from '@/lib/api'
+import { authApi, errMsg } from '@/lib/api'
 
 interface LoginPageProps {
   onLogin: (username: string) => void
@@ -16,16 +16,19 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!username || !password) return
+    if (loading) return
+    if (!username.trim() || !password) {
+      setError(!username.trim() ? '请输入用户名' : '请输入密码')
+      return
+    }
     setLoading(true)
     setError('')
     try {
       const resp = await authApi.login(username.trim(), password)
       onLogin(resp.data.username)
     } catch (err: unknown) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setError(detail || '登录失败')
+      setError(errMsg(err, '登录失败'))
+      setPassword('')
     } finally {
       setLoading(false)
     }
@@ -51,29 +54,42 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-xs text-cyber-text-secondary font-mono">用户名</label>
+            <label htmlFor="login-username" className="text-xs text-cyber-text-secondary font-mono">用户名</label>
             <Input
+              id="login-username"
+              name="username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="username"
+              onChange={(e) => {
+                setUsername(e.target.value)
+                if (error) setError('')
+              }}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               autoFocus
               className="h-9 text-xs"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-cyber-text-secondary font-mono">密码</label>
+            <label htmlFor="login-password" className="text-xs text-cyber-text-secondary font-mono">密码</label>
             <Input
+              id="login-password"
+              name="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="password"
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (error) setError('')
+              }}
+              autoComplete="current-password"
               className="h-9 text-xs"
             />
           </div>
         </div>
 
         {error && (
-          <div className="rounded-md border border-cyber-neon-orange/40 bg-cyber-neon-orange/10 px-3 py-2 text-[11px] text-cyber-neon-orange font-mono">
+          <div role="alert" className="rounded-md border border-cyber-neon-orange/40 bg-cyber-neon-orange/10 px-3 py-2 text-[11px] text-cyber-neon-orange font-mono">
             {error}
           </div>
         )}

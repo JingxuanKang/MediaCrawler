@@ -24,7 +24,7 @@
     "crawlTypePlaceholder": "Select type",
     "startPage": "START_PAGE",
     "keywords": "KEYWORDS",
-    "keywordsHint": "Press Enter to add keyword",
+    "keywordsHint": "Press Enter to add; paste several separated by commas",
     "keywordsPlaceholder": "Type keyword, press Enter to add...",
     "specifiedIds": "POST/VIDEO_ID",
     "specifiedIdsHint": "Enter post or video ID/URL, one per line or comma-separated",
@@ -67,5 +67,34 @@
   "warning": {
     "cookieSlider": "[Note] Cookie login is not recommended for Xiaohongshu and Douyin due to slider captcha",
     "xhsToken": "[Important] Xiaohongshu URLs must contain xsec_token parameter, please copy the full URL from browser"
+  },
+  "option": {
+    "platform": {
+      "xhs": "Xiaohongshu",
+      "dy": "Douyin",
+      "ks": "Kuaishou",
+      "bili": "Bilibili",
+      "wb": "Weibo",
+      "tieba": "Baidu Tieba",
+      "zhihu": "Zhihu"
+    },
+    "crawlerType": {
+      "search": "Search",
+      "detail": "Post detail",
+      "creator": "Creator"
+    },
+    "loginType": {
+      "qrcode": "QR code",
+      "cookie": "Cookie"
+    },
+    "saveOption": {
+      "jsonl": "JSONL file",
+      "json": "JSON file",
+      "csv": "CSV file",
+      "excel": "Excel file",
+      "sqlite": "SQLite",
+      "db": "MySQL",
+      "mongodb": "MongoDB"
+    }
   }
 }

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { FolderOpen, RefreshCw } from 'lucide-react'
-import { dataApi } from '@/lib/api'
+import { dataApi, errMsg } from '@/lib/api'
 import { FileCard } from './FileCard'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +39,7 @@ export function DataExplorer() {
   const { t } = useTranslation('data')
   const [activeTab, setActiveTab] = useState<string>('all')
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     queryKey: ['dataFiles'],
     queryFn: async () => {
       const { data } = await dataApi.getFiles()
@@ -131,6 +131,11 @@ export function DataExplorer() {
           <div className="text-cyber-text-muted font-mono animate-pulse">
             {t('explorer.loading')}
           </div>
+        </div>
+      ) : isError ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+          <h3 className="text-base font-mono text-cyber-neon-pink">{t('explorer.loadFailed')}</h3>
+          <p className="text-sm text-cyber-text-muted max-w-md font-mono">{errMsg(error)}</p>
         </div>
       ) : files.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center">

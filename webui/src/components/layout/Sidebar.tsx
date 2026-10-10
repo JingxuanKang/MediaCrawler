@@ -24,16 +24,16 @@ export function Sidebar({ username, onLogout }: SidebarProps) {
     <header className="h-14 flex-shrink-0 glass-panel border-b border-cyber-border-subtle relative z-10">
       <div className="h-full px-4 flex items-center justify-between">
         {/* Left: Logo and GitHub Star */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Bug className="w-5 h-5 text-cyber-neon-cyan" />
-          <span className="font-mono font-bold text-cyber-text-primary tracking-wider text-sm">
+          <span className="font-mono font-bold text-cyber-text-primary tracking-wider text-sm truncate">
             MediaCrawler
           </span>
           <a
             href="https://github.com/NanmiCoder/MediaCrawler"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-cyber-border-subtle hover:border-cyber-neon-cyan hover:shadow-glow-cyan-sm transition-all bg-cyber-bg-tertiary"
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md border border-cyber-border-subtle hover:border-cyber-neon-cyan hover:shadow-glow-cyan-sm transition-all bg-cyber-bg-tertiary"
           >
             <Github className="w-4 h-4 text-cyber-text-secondary" />
             <span className="text-xs font-mono text-cyber-text-secondary">Star</span>
@@ -52,28 +52,30 @@ export function Sidebar({ username, onLogout }: SidebarProps) {
         <div className="flex-1" />
 
         {/* Right: Actions and Status */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {/* Current user + logout */}
           {username && (
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-xs font-mono text-cyber-text-secondary">
-                <User className="w-3.5 h-3.5" />
-                {username}
+              <span className="flex items-center gap-1 text-xs font-mono text-cyber-text-secondary max-w-[7rem] truncate">
+                <User className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{username}</span>
               </span>
               <button
                 onClick={onLogout}
                 title="登出"
-                className="flex items-center gap-1 px-2 py-1 rounded-md border border-cyber-border-subtle hover:border-cyber-neon-orange hover:text-cyber-neon-orange text-cyber-text-secondary transition-all bg-cyber-bg-tertiary text-xs font-mono"
+                aria-label="登出"
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-cyber-border-subtle hover:border-cyber-neon-orange hover:text-cyber-neon-orange text-cyber-text-secondary transition-all bg-cyber-bg-tertiary text-xs font-mono whitespace-nowrap"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                登出
+                <span className="hidden sm:inline">登出</span>
               </button>
             </div>
           )}
-          {/* Theme Toggle */}
-          <ThemeToggle />
-          {/* Language Switch */}
-          <LanguageSwitch />
+          {/* Theme / Language:手机上收起,省出顶栏宽度 */}
+          <div className="hidden sm:flex items-center gap-3">
+            <ThemeToggle />
+            <LanguageSwitch />
+          </div>
 
           {/* Status Info */}
           <div className="hidden lg:flex items-center gap-2 text-xs font-mono">

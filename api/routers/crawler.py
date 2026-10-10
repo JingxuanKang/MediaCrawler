@@ -16,7 +16,7 @@
 # 详细许可条款请参阅项目根目录下的LICENSE文件。
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import FileResponse
 
 from ..schemas import CrawlerStartRequest, CrawlerStatusResponse
@@ -33,10 +33,10 @@ async def start_crawler(request: CrawlerStartRequest, user: str = Depends(requir
     success = await mgr.start(request)
     if not success:
         if mgr.process and mgr.process.poll() is None:
-            raise HTTPException(status_code=400, detail="Crawler is already running")
-        raise HTTPException(status_code=500, detail="Failed to start crawler")
+            raise HTTPException(status_code=409, detail="已有任务在运行,先停止再启动")
+        raise HTTPException(status_code=500, detail=f"启动失败:{mgr.error_message or '未知错误'}")
 
-    return {"status": "ok", "message": "Crawler started successfully"}
+    return {"status": "ok", "message": "任务已启动"}
 
 
 @router.post("/stop")
@@ -46,10 +46,10 @@ async def stop_crawler(user: str = Depends(require_user)):
     success = await mgr.stop()
     if not success:
         if not mgr.process or mgr.process.poll() is not None:
-            raise HTTPException(status_code=400, detail="No crawler is running")
-        raise HTTPException(status_code=500, detail="Failed to stop crawler")
+            raise HTTPException(status_code=409, detail="当前没有运行中的任务")
+        raise HTTPException(status_code=500, detail="停止失败")
 
-    return {"status": "ok", "message": "Crawler stopped successfully"}
+    return {"status": "ok", "message": "任务已停止"}
 
 
 @router.get("/status", response_model=CrawlerStatusResponse)
@@ -59,8 +59,8 @@ async def get_crawler_status(user: str = Depends(require_user)):
 
 
 @router.get("/logs")
-async def get_logs(limit: int = 100, user: str = Depends(require_user)):
-    """Get recent logs"""
+async def get_logs(limit: int = Query(100, ge=0, le=500), user: str = Depends(require_user)):
+    """Get recent logs(limit=0 返回全部,服务端最多保留 500 条)"""
     mgr = get_manager(user)
     logs = mgr.logs[-limit:] if limit > 0 else mgr.logs
     return {"logs": [log.model_dump() for log in logs]}
@@ -71,7 +71,7 @@ async def get_login_qr(user: str = Depends(require_user)):
     """扫码登录二维码(无头浏览器写出的 PNG)。没有则 404。"""
     qr = get_manager(user).qr_file()
     if not qr.exists():
-        raise HTTPException(status_code=404, detail="no qrcode")
+        raise HTTPException(status_code=404, detail="二维码还没生成")
     return FileResponse(
         qr, media_type="image/png",
         headers={"Cache-Control": "no-store, no-cache, must-revalidate"},

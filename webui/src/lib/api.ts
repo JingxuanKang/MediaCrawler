@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { CrawlerConfig } from '@/types/crawler'
 
 const api = axios.create({
   baseURL: '/api',
@@ -8,6 +9,19 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+/** 从 axios 错误里取出给人看的一句话:后端统一回 {detail: string};网络错误/超时单独说明。 */
+export function errMsg(err: unknown, fallback = '请求失败'): string {
+  const e = err as { response?: { status?: number; data?: { detail?: unknown } }; code?: string; message?: string }
+  const detail = e?.response?.data?.detail
+  if (typeof detail === 'string' && detail) return detail
+  if (Array.isArray(detail) && detail.length) {
+    return detail.map((d) => (d as { msg?: string })?.msg || String(d)).join(';')
+  }
+  if (e?.code === 'ECONNABORTED') return '请求超时,稍后再试'
+  if (!e?.response) return '连不上服务器,检查网络后重试'
+  return `${fallback}(HTTP ${e.response.status})`
+}
 
 // 未登录(401)回调:App 注册,收到即弹登录页
 let onUnauthorized: (() => void) | null = null
@@ -28,18 +42,7 @@ api.interceptors.response.use(
 )
 
 // Types
-export interface CrawlerConfig {
-  platform: string
-  login_type: string
-  crawler_type: string
-  keywords: string
-  start_page: number
-  enable_comments: boolean
-  enable_sub_comments: boolean
-  save_option: string
-  cookies: string
-  headless: boolean
-}
+export type { CrawlerConfig }
 
 export interface CrawlerStatus {
   status: 'idle' | 'running' | 'stopping' | 'error'

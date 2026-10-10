@@ -21,12 +21,15 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import FileResponse
 
 from ..auth import require_user
 
 router = APIRouter(prefix="/data", tags=["data"])
+
+# 数据浏览器列出的文件类型(保存格式 jsonl/json/csv/excel 的产物)
+SUPPORTED_EXTENSIONS = {".json", ".jsonl", ".csv", ".xlsx", ".xls"}
 
 # 全部数据根;每个登录用户只看自己 <root>/<用户>/ 这一子树。
 # MC_DATA_ROOT 可指 NAS 挂载(如 /mnt/mc-nas),与爬虫落盘保持一致;默认项目本地 data/。
@@ -49,6 +52,9 @@ def get_file_info(file_path: Path, base_dir: Path) -> dict:
                 data = json.load(f)
                 if isinstance(data, list):
                     record_count = len(data)
+        elif file_path.suffix == ".jsonl":
+            with open(file_path, "r", encoding="utf-8") as f:
+                record_count = sum(1 for line in f if line.strip())
         elif file_path.suffix == ".csv":
             with open(file_path, "r", encoding="utf-8") as f:
                 record_count = sum(1 for _ in f) - 1
@@ -72,7 +78,7 @@ def _resolve_in_user_dir(user: str, file_path: str) -> Path:
     try:
         full.resolve().relative_to(base.resolve())
     except ValueError:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=403, detail="无权访问该路径")
     return full
 
 
@@ -85,13 +91,12 @@ async def list_data_files(platform: Optional[str] = None, file_type: Optional[st
         return {"files": []}
 
     files = []
-    supported_extensions = {".json", ".csv", ".xlsx", ".xls"}
 
     for root, dirs, filenames in os.walk(base):
         root_path = Path(root)
         for filename in filenames:
             file_path = root_path / filename
-            if file_path.suffix.lower() not in supported_extensions:
+            if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
                 continue
 
             if platform:
@@ -112,15 +117,15 @@ async def list_data_files(platform: Optional[str] = None, file_type: Optional[st
 
 
 @router.get("/files/{file_path:path}")
-async def get_file_content(file_path: str, preview: bool = True, limit: int = 100,
+async def get_file_content(file_path: str, preview: bool = True, limit: int = Query(100, ge=1, le=1000),
                            user: str = Depends(require_user)):
     """Get file content or preview(仅本用户)"""
     full_path = _resolve_in_user_dir(user, file_path)
 
     if not full_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="文件不存在")
     if not full_path.is_file():
-        raise HTTPException(status_code=400, detail="Not a file")
+        raise HTTPException(status_code=400, detail="不是文件")
 
     if preview:
         try:
@@ -130,6 +135,16 @@ async def get_file_content(file_path: str, preview: bool = True, limit: int = 10
                     if isinstance(data, list):
                         return {"data": data[:limit], "total": len(data)}
                     return {"data": data, "total": 1}
+            elif full_path.suffix == ".jsonl":
+                rows, total = [], 0
+                with open(full_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        if total < limit:
+                            rows.append(json.loads(line))
+                        total += 1
+                return {"data": rows, "total": total}
             elif full_path.suffix == ".csv":
                 import csv
                 with open(full_path, "r", encoding="utf-8") as f:
@@ -150,13 +165,13 @@ async def get_file_content(file_path: str, preview: bool = True, limit: int = 10
                 rows = df.where(pd.notnull(df), None).to_dict(orient="records")
                 return {"data": rows, "total": total, "columns": list(df.columns)}
             else:
-                raise HTTPException(status_code=400, detail="Unsupported file type for preview")
+                raise HTTPException(status_code=400, detail="该文件类型不支持预览")
         except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON file")
+            raise HTTPException(status_code=400, detail="JSON 文件损坏,无法解析")
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=f"预览失败:{type(e).__name__}: {e}")
     else:
         return FileResponse(path=full_path, filename=full_path.name,
                             media_type="application/octet-stream")
@@ -168,9 +183,9 @@ async def download_file(file_path: str, user: str = Depends(require_user)):
     full_path = _resolve_in_user_dir(user, file_path)
 
     if not full_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="文件不存在")
     if not full_path.is_file():
-        raise HTTPException(status_code=400, detail="Not a file")
+        raise HTTPException(status_code=400, detail="不是文件")
 
     return FileResponse(path=full_path, filename=full_path.name,
                         media_type="application/octet-stream")
@@ -184,13 +199,12 @@ async def get_data_stats(user: str = Depends(require_user)):
         return {"total_files": 0, "total_size": 0, "by_platform": {}, "by_type": {}}
 
     stats = {"total_files": 0, "total_size": 0, "by_platform": {}, "by_type": {}}
-    supported_extensions = {".json", ".csv", ".xlsx", ".xls"}
 
     for root, dirs, filenames in os.walk(base):
         root_path = Path(root)
         for filename in filenames:
             file_path = root_path / filename
-            if file_path.suffix.lower() not in supported_extensions:
+            if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
                 continue
             try:
                 stat = file_path.stat()

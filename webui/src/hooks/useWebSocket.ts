@@ -39,7 +39,7 @@ export function useLogWebSocket() {
 
       ws.onopen = () => {
         if (globalWs !== ws) return
-        console.log('WebSocket connected')
+        useCrawlerStore.getState().setWsConnected(true)
       }
 
       ws.onmessage = (event) => {
@@ -64,7 +64,7 @@ export function useLogWebSocket() {
 
       ws.onclose = () => {
         if (globalWs !== ws) return
-        console.log('WebSocket disconnected')
+        useCrawlerStore.getState().setWsConnected(false)
         globalWs = null
         // 只在还有使用者时才重连
         if (connectionCount > 0) {

@@ -24,8 +24,8 @@
     "crawlTypePlaceholder": "选择类型",
     "startPage": "起始页",
     "keywords": "关键词",
-    "keywordsHint": "输入关键词后按回车添加",
-    "keywordsPlaceholder": "输入关键词，按回车添加...",
+    "keywordsHint": "按回车添加;可一次粘贴多个,用逗号分隔",
+    "keywordsPlaceholder": "输入关键词后按回车",
     "specifiedIds": "帖子/视频 ID",
     "specifiedIdsHint": "输入帖子或视频的ID/URL，每行一个或用逗号分隔",
     "specifiedIdsPlaceholder": {
@@ -59,13 +59,42 @@
     "headlessModeHint": "无 GUI 运行浏览器"
   },
   "button": {
-    "initiateScan": "开始爬虫",
+    "initiateScan": "开始采集",
     "initiating": "启动中...",
-    "terminate": "终止",
+    "terminate": "停止任务",
     "stopping": "停止中..."
   },
   "warning": {
     "cookieSlider": "[提示] 小红书和抖音平台不建议使用 Cookie 登录，因为可能会触发滑块验证",
     "xhsToken": "[重要] 小红书 URL 必须包含 xsec_token 参数，请从浏览器复制完整 URL"
+  },
+  "option": {
+    "platform": {
+      "xhs": "小红书",
+      "dy": "抖音",
+      "ks": "快手",
+      "bili": "B 站",
+      "wb": "微博",
+      "tieba": "百度贴吧",
+      "zhihu": "知乎"
+    },
+    "crawlerType": {
+      "search": "关键词搜索",
+      "detail": "指定帖子详情",
+      "creator": "创作者主页"
+    },
+    "loginType": {
+      "qrcode": "扫码登录",
+      "cookie": "Cookie 登录"
+    },
+    "saveOption": {
+      "jsonl": "JSONL 文件",
+      "json": "JSON 文件",
+      "csv": "CSV 文件",
+      "excel": "Excel 文件",
+      "sqlite": "SQLite 数据库",
+      "db": "MySQL 数据库",
+      "mongodb": "MongoDB 数据库"
+    }
   }
 }

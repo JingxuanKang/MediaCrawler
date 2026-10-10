@@ -5,12 +5,13 @@
   },
   "explorer": {
     "title": "数据文件管理",
-    "records": "{{count}} 条",
+    "records": "{{count}} 个文件",
     "rescan": "重新扫描",
     "loading": "[加载中] 正在扫描数据目录...",
     "noData": "暂无数据",
-    "noDataHint": "启动爬虫开始数据采集，完成后结果将显示在此处。",
-    "allCategories": "全部"
+    "noDataHint": "这里列出你名下的 JSON、JSONL、CSV、Excel 结果文件。跑完一次采集后点「重新扫描」。",
+    "allCategories": "全部",
+    "loadFailed": "读取数据目录失败"
   },
   "file": {
     "entries": "{{count}} 条",

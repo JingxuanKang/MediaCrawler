@@ -4,13 +4,23 @@
     "entries": "{{count}} 条记录",
     "active": "活跃",
     "clear": "清除",
-    "restore": "恢复所有日志"
+    "restore": "恢复所有日志",
+    "offline": "实时日志未连接",
+    "offlineHint": "WebSocket 未连上,改为每 3 秒刷新一次日志"
   },
   "banner": {
     "systemInit": "[系统] 系统初始化成功",
-    "configHint": "[信息] 配置参数并启动扫描序列..."
+    "configHint": "[信息] 填好上方配置,点「开始采集」。日志会实时显示在这里。"
   },
   "footer": {
     "awaiting": "等待命令..."
+  },
+  "truncated": "只保留最近 {{count}} 条日志,更早的已丢弃",
+  "jumpToLatest": "跳到最新",
+  "status": {
+    "idle": "空闲",
+    "running": "运行中",
+    "stopping": "停止中",
+    "error": "异常退出"
   }
 }

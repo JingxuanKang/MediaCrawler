@@ -73,7 +73,8 @@ function App() {
       <Sidebar username={username} onLogout={handleLogout} />
 
       {/* Main Area */}
-      <div className="flex-1 flex flex-col gap-4 p-4 overflow-hidden min-h-0">
+      {/* 桌面:配置区定高、控制台占满剩余;手机:整列可滚动,控制台给最小高度 */}
+      <div className="flex-1 flex flex-col gap-4 p-3 sm:p-4 overflow-y-auto md:overflow-hidden min-h-0">
         <div className="flex-shrink-0">
           <CrawlerConfigPanel />
         </div>

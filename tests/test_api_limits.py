@@ -1,12 +1,28 @@
 # -*- coding: utf-8 -*-
 import pytest
 import config
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from cmd_arg import parse_cmd
 from api.schemas import CrawlerStartRequest, PlatformEnum, LoginTypeEnum, CrawlerTypeEnum
 from api.services.crawler_manager import CrawlerManager
 from api.main import app
+from api.auth import require_user
+
+
+@pytest.fixture(autouse=True)
+def _logged_in():
+    """全部 /api 都要登录;测试里直接把当前用户固定为 tester。"""
+    app.dependency_overrides[require_user] = lambda: "tester"
+    yield
+    app.dependency_overrides.pop(require_user, None)
+
+
+def _patch_manager():
+    """替换每用户的 CrawlerManager,只记录 start 的入参,不起真爬虫。"""
+    mgr = MagicMock()
+    mgr.start = AsyncMock(return_value=True)
+    return patch("api.routers.crawler.get_manager", return_value=mgr), mgr
 
 @pytest.mark.asyncio
 async def test_cmd_arg_crawler_max_notes_count():
@@ -65,8 +81,9 @@ def test_crawler_manager_build_command():
 def test_api_start_crawler_with_limits():
     client = TestClient(app)
 
-    with patch("api.routers.crawler.crawler_manager.start", new_callable=AsyncMock) as mock_start:
-        mock_start.return_value = True
+    patcher, mgr = _patch_manager()
+    with patcher:
+        mock_start = mgr.start
 
         # Test case 1: with limits
         response = client.post("/api/crawler/start", json={
@@ -79,7 +96,7 @@ def test_api_start_crawler_with_limits():
         })
 
         assert response.status_code == 200
-        assert response.json() == {"status": "ok", "message": "Crawler started successfully"}
+        assert response.json() == {"status": "ok", "message": "任务已启动"}
 
         mock_start.assert_called_once()
         called_request = mock_start.call_args[0][0]
@@ -90,8 +107,9 @@ def test_api_start_crawler_with_limits():
 def test_api_start_crawler_without_limits():
     client = TestClient(app)
 
-    with patch("api.routers.crawler.crawler_manager.start", new_callable=AsyncMock) as mock_start:
-        mock_start.return_value = True
+    patcher, mgr = _patch_manager()
+    with patcher:
+        mock_start = mgr.start
 
         # Test case 2: without limits
         response = client.post("/api/crawler/start", json={
@@ -130,8 +148,37 @@ def test_api_rejects_invalid_limits(field_name, value):
         field_name: value,
     }
 
-    with patch("api.routers.crawler.crawler_manager.start", new_callable=AsyncMock) as mock_start:
+    patcher, mgr = _patch_manager()
+    with patcher:
         response = client.post("/api/crawler/start", json=payload)
 
     assert response.status_code == 422
-    mock_start.assert_not_called()
+    assert isinstance(response.json()["detail"], str)
+    mgr.start.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"crawler_type": "search", "keywords": " , "}, "搜索模式需要至少一个关键词"),
+        ({"crawler_type": "detail", "specified_ids": "\n "}, "详情模式需要至少一个帖子/视频 ID"),
+        ({"crawler_type": "creator"}, "创作者模式需要至少一个创作者 ID"),
+        ({"crawler_type": "search", "keywords": "a", "crawl_interval": 61}, "每条间隔秒不能大于 60"),
+    ],
+)
+def test_api_rejects_missing_mode_inputs(payload, message):
+    client = TestClient(app)
+    patcher, mgr = _patch_manager()
+    with patcher:
+        response = client.post("/api/crawler/start", json={"platform": "xhs", **payload})
+    assert response.status_code == 422
+    assert response.json() == {"detail": message}
+    mgr.start.assert_not_called()
+
+
+def test_request_normalizes_ids_and_keywords():
+    req = CrawlerStartRequest(platform=PlatformEnum.BILIBILI, crawler_type=CrawlerTypeEnum.DETAIL,
+                              specified_ids="BV1\nBV2, BV3，BV4")
+    assert req.specified_ids == "BV1,BV2,BV3,BV4"
+    req = CrawlerStartRequest(platform=PlatformEnum.BILIBILI, keywords="猫，狗,猫")
+    assert req.keywords == "猫,狗"

@@ -27,7 +27,10 @@ import sys
 import subprocess
 from pathlib import Path
 import uvicorn
-from fastapi import FastAPI, HTTPException, Header
+import hmac
+from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -63,6 +66,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 字段中文名:校验失败时拼进提示
+_FIELD_NAMES = {
+    "platform": "平台", "login_type": "登录方式", "crawler_type": "爬取类型",
+    "keywords": "关键词", "specified_ids": "帖子/视频 ID", "creator_ids": "创作者 ID",
+    "start_page": "起始页", "save_option": "保存格式", "account": "子数据集",
+    "max_notes_count": "最多抓几条", "max_comments_count": "每条最多评论数",
+    "crawl_interval": "每条间隔秒", "username": "用户名", "password": "密码",
+}
+
+
+def _validation_message(err: dict) -> str:
+    loc = [str(x) for x in err.get("loc", ()) if x not in ("body", "query", "path") and not isinstance(x, int)]
+    name = _FIELD_NAMES.get(loc[-1], loc[-1]) if loc else ""
+    ctx = err.get("ctx") or {}
+    t = err.get("type", "")
+    if t == "json_invalid":
+        return "请求体不是合法 JSON"
+    if t == "value_error":  # 来自 model_validator 的中文提示
+        return str(ctx.get("error") or err.get("msg", "")).removeprefix("Value error, ")
+    if t in ("less_than_equal", "less_than"):
+        return f"{name}不能大于 {ctx.get('le', ctx.get('lt'))}"
+    if t in ("greater_than_equal", "greater_than"):
+        return f"{name}不能小于 {ctx.get('ge', ctx.get('gt'))}"
+    if t == "enum":
+        return f"{name}取值无效"
+    if t == "missing":
+        return f"缺少{name or '必填项'}"
+    if t.endswith("_parsing") or t.endswith("_type"):
+        return f"{name}格式不对"
+    return f"{name}: {err.get('msg', '')}" if name else err.get("msg", "参数错误")
+
+
+@app.exception_handler(RequestValidationError)
+async def _on_validation_error(request: Request, exc: RequestValidationError):
+    """校验错误也回 {"detail": "<中文一句话>"},与 HTTPException 的形状一致,前端只读 detail 字符串。"""
+    msgs = list(dict.fromkeys(_validation_message(e) for e in exc.errors()))
+    return JSONResponse(status_code=422, content={"detail": ";".join(msgs) or "参数错误"})
+
+
 # Register routers
 app.include_router(auth_router, prefix="/api")  # 登录/登出/me,公开
 app.include_router(crawler_router, prefix="/api")
@@ -94,7 +136,7 @@ async def browser_xhs_cookie(x_provider_secret: str = Header(default="")):
     """给 media-sync/xhs-sync 拉登录态:读本地 Chromium(CDP 9222)的小红书 cookie。
     密钥 MC_PROVIDER_SECRET(= xhs bridge secret)保护;CDP 不外露,只本机读、经这个 HTTP 口出。"""
     sec = os.environ.get("MC_PROVIDER_SECRET", "")
-    if not sec or x_provider_secret != sec:
+    if not sec or not hmac.compare_digest(x_provider_secret.encode(), sec.encode()):
         raise HTTPException(status_code=401, detail="provider secret 不符")
     port = os.environ.get("MC_CDP_PORT", "9222")
     from playwright.async_api import async_playwright

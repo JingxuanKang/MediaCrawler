@@ -29,8 +29,12 @@ from ..schemas import CrawlerStartRequest, LogEntry
 
 
 def _safe_seg(name: str) -> str:
-    """路径段清洗(用户名/账号):只留字母数字下划线连字符,防路径穿越,截断 64。"""
-    return re.sub(r"[^0-9A-Za-z_\-]", "_", (name or "").strip())[:64]
+    """路径段清洗(用户名/账号):只留字母(含中文)数字下划线连字符,防路径穿越,截断 64。"""
+    return re.sub(r"[^\w\-]", "_", (name or "").strip())[:64]
+
+
+MAX_LOGS = 500           # 每用户保留的日志条数(前端同值)
+MAX_LOG_LINE = 2000      # 单条日志最多字符;超出截断,防止整页 JSON 撑爆浏览器
 
 
 # 走 CDP(连 chrome.jingxuan.uk 的 Selkies Chromium:localhost:9222)的用户白名单;其他用户照旧各自 headless。
@@ -48,6 +52,7 @@ class CrawlerManager:
         self._lock = asyncio.Lock()
         self.process: Optional[subprocess.Popen] = None
         self.status = "idle"
+        self.error_message: Optional[str] = None
         self.started_at: Optional[datetime] = None
         self.current_config: Optional[CrawlerStartRequest] = None
         self._log_id = 0
@@ -68,6 +73,8 @@ class CrawlerManager:
         self._ws_connections.discard(ws)
 
     def _create_log_entry(self, message: str, level: str = "info") -> LogEntry:
+        if len(message) > MAX_LOG_LINE:
+            message = f"{message[:MAX_LOG_LINE]} …(已截断 {len(message) - MAX_LOG_LINE} 字)"
         self._log_id += 1
         entry = LogEntry(
             id=self._log_id,
@@ -76,8 +83,8 @@ class CrawlerManager:
             message=message,
         )
         self._logs.append(entry)
-        if len(self._logs) > 500:
-            self._logs = self._logs[-500:]
+        if len(self._logs) > MAX_LOGS:
+            self._logs = self._logs[-MAX_LOGS:]
         return entry
 
     async def _push_log(self, entry: LogEntry):
@@ -125,6 +132,7 @@ class CrawlerManager:
 
             self._logs = []
             self._log_id = 0
+            self.error_message = None
 
             # 清掉上一轮的二维码,避免前端扫到过期码
             try:
@@ -175,6 +183,7 @@ class CrawlerManager:
                 return True
             except Exception as e:
                 self.status = "error"
+                self.error_message = f"{type(e).__name__}: {e}"
                 entry = self._create_log_entry(f"Failed to start crawler: {str(e)}", "error")
                 await self._push_log(entry)
                 return False
@@ -218,7 +227,7 @@ class CrawlerManager:
             "platform": self.current_config.platform.value if self.current_config else None,
             "crawler_type": self.current_config.crawler_type.value if self.current_config else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "error_message": None,
+            "error_message": self.error_message,
         }
 
     def _build_command(self, config: CrawlerStartRequest) -> list:
@@ -275,10 +284,12 @@ class CrawlerManager:
                 exit_code = self.process.returncode if self.process else -1
                 if exit_code == 0:
                     entry = self._create_log_entry("Crawler completed successfully", "success")
+                    self.status = "idle"
                 else:
-                    entry = self._create_log_entry(f"Crawler exited with code: {exit_code}", "warning")
+                    entry = self._create_log_entry(f"Crawler exited with code: {exit_code}", "error")
+                    self.error_message = f"爬虫异常退出(退出码 {exit_code}),详情看日志"
+                    self.status = "error"
                 await self._push_log(entry)
-                self.status = "idle"
 
         except asyncio.CancelledError:
             pass
